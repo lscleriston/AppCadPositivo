@@ -106,7 +106,8 @@ def _refresh_onedrive_token(cfg: dict) -> str:
         },
         timeout=60,
     )
-    response.raise_for_status()
+    if response.status_code != 200:
+        raise RuntimeError(f"Falha ao atualizar token OneDrive: {response.status_code} - {response.text}")
     new_tokens = response.json()
 
     token_file.parent.mkdir(parents=True, exist_ok=True)

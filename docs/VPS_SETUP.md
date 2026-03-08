@@ -2,9 +2,9 @@
 
 ## Referências Rápidas
 
-- Visão geral do projeto: `README.md`
+- Visão geral do projeto: `../README.md`
 - Instalação completa: `INSTALL.md`
-- Rotina de backup e OneDrive: `backup/README.md`
+- Rotina de backup e OneDrive: `../backup/README.md`
 
 ## Status: ✅ PRONTO PARA PRODUÇÃO
 
@@ -348,7 +348,7 @@ mysql -u db_brian -pRFAXB@r bd_cadpositivo < db_dump_YYYYMMDD_HHMMSS.sql
 tar -xzf arquivos_YYYYMMDD_HHMMSS.tar.gz -C /opt/AppCadPositivo
 ```
 
-Detalhes completos: `backup/README.md`.
+Detalhes completos: `../backup/README.md`.
 
 ---
 

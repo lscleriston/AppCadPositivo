@@ -32,6 +32,8 @@ arquivos_backup_*/
 # Local backup artifacts
 backup/generated/
 backup/logs/
+backup/tokens.json
+backup/restore_tmp/
 
 # ETL local artifacts
 etl_postgresql/.env
