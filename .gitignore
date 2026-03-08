@@ -35,6 +35,9 @@ backup/logs/
 backup/tokens.json
 backup/restore_tmp/
 
+# Local temporary workspace artifacts
+tmp/
+
 # ETL local artifacts
 etl_postgresql/.env
 etl_postgresql/logs/
