@@ -1,5 +1,11 @@
 # Guia de Deploy na VPS - AppCadPositivo
 
+## Referências Rápidas
+
+- Visão geral do projeto: `README.md`
+- Instalação completa: `INSTALL.md`
+- Rotina de backup e OneDrive: `backup/README.md`
+
 ## Status: ✅ PRONTO PARA PRODUÇÃO
 
 A aplicação AppCadPositivo foi configurada e testada com sucesso na VPS. Segue o guia completo de setup e manutenção.
@@ -324,25 +330,25 @@ systemctl restart mariadb
 
 ### Backup Completo
 ```bash
-# Backup do banco
-mysqldump -u db_brian -pRFAXB@r bd_cadpositivo > /root/backups/bd_$(date +%Y%m%d_%H%M%S).sql
+# Backup completo (dump + arquivos + upload OneDrive)
+/bin/bash /opt/AppCadPositivo/backup/run_backup.sh
 
-# Backup dos arquivos do projeto
-tar -czf /root/backups/appcadpositivo_$(date +%Y%m%d_%H%M%S).tar.gz /opt/AppCadPositivo/
+# Ver logs da rotina
+tail -f /opt/AppCadPositivo/backup/logs/backup.log
 
-# Backup dos arquivos de usuário (se houver)
-tar -czf /root/backups/arquivos_$(date +%Y%m%d_%H%M%S).tar.gz /opt/AppCadPositivo/arquivos/
+# Verificar agenda no cron
+crontab -l | grep "BACKUP APPCADPOSITIVO" -A 4
 ```
 
 ### Restauração
 ```bash
-# Restaurar banco
-mysql -u db_brian -pRFAXB@r bd_cadpositivo < /root/backups/bd_*.sql
-
-# Restaurar projeto
-tar -xzf /root/backups/appcadpositivo_*.tar.gz -C /
-systemctl restart appcadpositivo
+# Restauracao usa os artefatos (dump e tar.gz) disponiveis no OneDrive
+# Baixe os arquivos para o servidor e execute:
+mysql -u db_brian -pRFAXB@r bd_cadpositivo < db_dump_YYYYMMDD_HHMMSS.sql
+tar -xzf arquivos_YYYYMMDD_HHMMSS.tar.gz -C /opt/AppCadPositivo
 ```
+
+Detalhes completos: `backup/README.md`.
 
 ---
 

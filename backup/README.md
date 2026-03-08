@@ -1,5 +1,10 @@
 # Backup AppCadPositivo
 
+## Navegação
+
+- Visão geral do projeto: `README.md`
+- Operação na VPS: `VPS_SETUP.md`
+
 Este modulo faz backup de:
 - Dump do banco MariaDB (via `backend/.env`)
 - Compactacao da pasta `arquivos/`
@@ -38,4 +43,12 @@ Tambem e possivel sobrescrever por variaveis de ambiente:
 ```bash
 cd /opt/AppCadPositivo
 bash backup/run_backup.sh
+```
+
+## Execucao automatica (cron)
+
+A rotina diaria esta configurada para `02:30` no servidor:
+
+```bash
+crontab -l | grep "BACKUP APPCADPOSITIVO" -A 4
 ```

@@ -1,73 +1,46 @@
-# Welcome to your Lovable project
+# AppCadPositivo
 
-## Project info
+Sistema de cadastro com frontend React/Vite e backend FastAPI.
 
-**URL**: https://lovable.dev/projects/a3232113-3dd3-4597-a94d-b08c855627e0
+## Documentação
 
-## How can I edit this code?
+- Guia de produção (VPS, serviços, deploy, troubleshooting): `VPS_SETUP.md`
+- Guia de instalação completa (manual e automatizada): `INSTALL.md`
+- Guia operacional complementar de deploy: `DEPLOYMENT.md`
+- Rotina de backup (dump + arquivos + OneDrive): `backup/README.md`
 
-There are several ways of editing your application.
+## Stack
 
-**Use Lovable**
+- Frontend: React, TypeScript, Vite, Tailwind
+- Backend: FastAPI, SQLAlchemy
+- Banco: MariaDB
+- Infra: Nginx + systemd
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/a3232113-3dd3-4597-a94d-b08c855627e0) and start prompting.
+## Execução rápida (desenvolvimento)
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+cd /opt/AppCadPositivo
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Deploy rápido (produção)
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```bash
+cd /opt/AppCadPositivo
+git pull origin main
+npm run build
+sudo systemctl restart appcadpositivo
+sudo systemctl reload nginx
+```
 
-**Use GitHub Codespaces**
+## Backup em produção
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Execução manual:
 
-## What technologies are used for this project?
+```bash
+cd /opt/AppCadPositivo
+bash backup/run_backup.sh
+```
 
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/a3232113-3dd3-4597-a94d-b08c855627e0) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+Detalhes de configuração e cron: `backup/README.md`.
