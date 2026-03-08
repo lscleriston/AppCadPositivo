@@ -11,7 +11,7 @@ A aplicação AppCadPositivo foi configurada e testada com sucesso na VPS. Segue
 ```
 ┌─────────────────────────────────────────────┐
 │  Frontend (Vite + React + TypeScript)       │
-│  Build output: /root/AppCadPositivo/dist    │
+│  Build output: /opt/AppCadPositivo/dist     │
 └──────────────────┬──────────────────────────┘
                    │
         ┌──────────┴──────────┐
@@ -53,7 +53,7 @@ A aplicação AppCadPositivo foi configurada e testada com sucesso na VPS. Segue
 ## Estrutura do Projeto
 
 ```
-/root/AppCadPositivo/
+/opt/AppCadPositivo/
 ├── backend/
 │   ├── .venv/                    # Virtualenv Python
 │   ├── app/
@@ -104,14 +104,14 @@ journalctl -u appcadpositivo -n 50
 **Configuração:**
 - **User:** root
 - **Porta:** 8000
-- **WorkingDirectory:** `/root/AppCadPositivo/backend`
+- **WorkingDirectory:** `/opt/AppCadPositivo/backend`
 - **Restart:** Automático (sempre reinicia em caso de falha)
 
 ---
 
 ## Variáveis de Ambiente
 
-**Arquivo:** `/root/AppCadPositivo/backend/.env`
+**Arquivo:** `/opt/AppCadPositivo/backend/.env`
 
 ```env
 DB_HOST=127.0.0.1          # Host MariaDB local
@@ -122,9 +122,16 @@ DB_NAME=bd_cadpositivo      # Nome do BD
 
 SECRET_KEY="sua_chave_super_secreta_aqui"  # Chave JWT
 ALGORITHM="HS256"           # Algoritmo de criptografia
+
+# Power BI (Azure AD App Registration)
+PBI_TENANT_ID="seu_tenant_id"
+PBI_CLIENT_ID="seu_client_id"
+PBI_CLIENT_SECRET="seu_client_secret"
+PBI_GROUP_ID="seu_workspace_group_id"
+PBI_REPORT_ID="seu_report_id"
 ```
 
-⚠️ **Importante:** Alterar `SECRET_KEY` para uma chave forte em produção.
+⚠️ **Importante:** Alterar `SECRET_KEY` para uma chave forte em produção e manter `PBI_CLIENT_SECRET` apenas em `backend/.env`.
 
 ---
 
@@ -190,7 +197,7 @@ Quando você fizer alterações no código (frontend ou backend):
 
 ```bash
 # 1. Ir para o diretório do projeto
-cd /root/AppCadPositivo
+cd /opt/AppCadPositivo
 
 # 2. Fazer pull das alterações do GitHub
 git pull origin main
@@ -265,7 +272,7 @@ mysql -u db_brian -pRFAXB@r -h 127.0.0.1 -e "SELECT 1;"
 journalctl -u appcadpositivo -n 50 --no-pager
 
 # 2. Testar inicialização manual
-cd /root/AppCadPositivo/backend
+cd /opt/AppCadPositivo/backend
 . .venv/bin/activate
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8001
 
@@ -289,10 +296,10 @@ systemctl restart appcadpositivo
 ### Problema: Nginx não encontra frontend
 ```bash
 # Verificar se dist/ existe
-ls -la /root/AppCadPositivo/dist/
+ls -la /opt/AppCadPositivo/dist/
 
 # Se não existir, recompilar
-cd /root/AppCadPositivo
+cd /opt/AppCadPositivo
 npm run build
 
 # Recarregar nginx
@@ -321,10 +328,10 @@ systemctl restart mariadb
 mysqldump -u db_brian -pRFAXB@r bd_cadpositivo > /root/backups/bd_$(date +%Y%m%d_%H%M%S).sql
 
 # Backup dos arquivos do projeto
-tar -czf /root/backups/appcadpositivo_$(date +%Y%m%d_%H%M%S).tar.gz /root/AppCadPositivo/
+tar -czf /root/backups/appcadpositivo_$(date +%Y%m%d_%H%M%S).tar.gz /opt/AppCadPositivo/
 
 # Backup dos arquivos de usuário (se houver)
-tar -czf /root/backups/arquivos_$(date +%Y%m%d_%H%M%S).tar.gz /root/AppCadPositivo/arquivos/
+tar -czf /root/backups/arquivos_$(date +%Y%m%d_%H%M%S).tar.gz /opt/AppCadPositivo/arquivos/
 ```
 
 ### Restauração

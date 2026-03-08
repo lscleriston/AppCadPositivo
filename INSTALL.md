@@ -335,6 +335,13 @@ sudo systemctl start appcadpositivo
 | DB_NAME | Nome do banco | bd_cadpositivo |
 | SECRET_KEY | Chave JWT | (definir) |
 | ALGORITHM | Algoritmo JWT | HS256 |
+| PBI_TENANT_ID | Tenant ID do Azure AD (Power BI) | (definir) |
+| PBI_CLIENT_ID | Client ID do App Registration | (definir) |
+| PBI_CLIENT_SECRET | Client Secret do App Registration | (definir) |
+| PBI_GROUP_ID | Workspace (Group) ID do Power BI | (definir) |
+| PBI_REPORT_ID | Report ID do Power BI | (definir) |
+
+**Produção:** não versionar `backend/.env` e nunca manter segredos hardcoded no código.
 
 ### Configurar SSL/HTTPS (Recomendado)
 

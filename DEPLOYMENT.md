@@ -123,6 +123,13 @@ sudo chmod +x /opt/AppCadPositivo/backend/.venv/bin/uvicorn
 
 **Variáveis de ambiente:** `/opt/AppCadPositivo/backend/.env`
 
+Para recursos de Power BI em produção, configure também no `backend/.env`:
+- `PBI_TENANT_ID`
+- `PBI_CLIENT_ID`
+- `PBI_CLIENT_SECRET`
+- `PBI_GROUP_ID`
+- `PBI_REPORT_ID`
+
 ### 🌐 Acesso à Aplicação
 
 - **Frontend:** http://seu-servidor:8000/
