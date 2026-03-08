@@ -1,4 +1,4 @@
-import { User, LogOut, Settings, Home, Edit, Building2, FileText, Award, KeyRound, SlidersHorizontal, Users } from "lucide-react";
+import { User, LogOut, Settings, Home, Edit, Building2, Award, KeyRound, SlidersHorizontal, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -53,11 +53,7 @@ export const Header = () => {
                 <Button variant="ghost" onClick={() => navigate('/editar-certificacoes')}><Award className="h-4 w-4 mr-2"/>Editar Certificações</Button>
               </>
             )}
-            {(isSuperAdmin || isAdmin) && (
-              <>
-              <Button variant="ghost" onClick={() => navigate('/relatorio-bi')}><FileText className="h-4 w-4 mr-2"/>Relatório BI</Button>
-              </>
-            )}
+
           </nav>
 
           <div className="flex items-center space-x-4">

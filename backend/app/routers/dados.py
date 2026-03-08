@@ -17,6 +17,7 @@ from app import models
 from app import schemas
 from pathlib import Path
 from app.auth import get_current_user
+from app.config import get_public_base_url
 from app.crud import (
     criar_dado,
     salvar_arquivo_certificacao,
@@ -41,7 +42,7 @@ MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100 MB em bytes
 BASE_DIR = Path(__file__).resolve().parents[3] # usar 2 para o container e 3 para o local
 ARQUIVOS_DIR = BASE_DIR / "arquivos"
 
-BACKEND_URL = "http://10.34.5.157:8000"
+BACKEND_URL = get_public_base_url()
 
 CERTIFICACAO_ENDPOINT = f"{BACKEND_URL}/admin/ver-certificacao"
 CURRICULO_ENDPOINT = f"{BACKEND_URL}/admin/ver-curriculo"

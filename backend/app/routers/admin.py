@@ -7,12 +7,13 @@ from app.auth import get_current_user, get_current_user_token_query
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 import mimetypes
 from pathlib import Path
+from app.config import get_public_base_url
 
 router = APIRouter()
 
 BASE_DIR = Path(__file__).resolve().parents[3]  # usar 2 para container, 3 local
 ARQUIVOS_DIR = BASE_DIR / "arquivos"
-BACKEND_URL = "http://10.34.5.157:8000"
+BACKEND_URL = get_public_base_url()
 
 # Endpoint exemplo para listar todos os usuários (apenas para admin)
 @router.get("/users", response_model=list[schemas.UsuarioOut])

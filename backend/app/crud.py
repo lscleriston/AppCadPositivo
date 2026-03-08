@@ -19,12 +19,13 @@ from shutil import copyfileobj
 import requests
 from msal import ConfidentialClientApplication
 from flask import Flask, jsonify, Response
+from app.config import build_public_url
 
 
 BASE_DIR = Path(__file__).resolve().parents[2]  # usar 1 para o conteiner e 2 para o local
 ARQUIVOS_DIR = BASE_DIR / "arquivos"
 
-CERTIFICACAO_ENDPOINT = "http://10.34.5.157:8000/admin/ver-certificacao"
+CERTIFICACAO_ENDPOINT = build_public_url("/admin/ver-certificacao")
 
 def limpar_nome(nome: str) -> str:
     # Remove qualquer caractere não alfanumérico, hífen ou sublinhado
