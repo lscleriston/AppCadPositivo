@@ -524,29 +524,25 @@ tar -czf arquivos_backup_$(date +%Y%m%d).tar.gz /opt/AppCadPositivo/arquivos/
 ### Script de Backup Automático
 
 ```bash
-# Criar script
-cat > /opt/backup_appcadpositivo.sh <<'EOF'
-#!/bin/bash
-BACKUP_DIR="/opt/backups"
-DATE=$(date +%Y%m%d_%H%M%S)
-mkdir -p $BACKUP_DIR
+# Garantir permissão de execução
+chmod +x /opt/AppCadPositivo/backup/run_backup.sh
 
-# Backup do banco
-mysqldump -u db_brian -p'RFAXB@r' bd_cadpositivo | gzip > $BACKUP_DIR/db_$DATE.sql.gz
+# Teste manual
+/bin/bash /opt/AppCadPositivo/backup/run_backup.sh
 
-# Backup dos arquivos
-tar -czf $BACKUP_DIR/arquivos_$DATE.tar.gz /opt/AppCadPositivo/arquivos/
+# Adicionar ao cron (diário às 02h30) sem sobrescrever o crontab existente
+crontab -l > /tmp/cron_appcadpositivo
+cat <<'EOF' >> /tmp/cron_appcadpositivo
 
-# Manter apenas últimos 7 backups
-find $BACKUP_DIR -name "*.gz" -mtime +7 -delete
-
-echo "Backup concluído: $DATE"
+# =============================================================================
+# SCRIPT: BACKUP APPCADPOSITIVO
+# FREQUÊNCIA: Diariamente às 02h30
+# DESCRIÇÃO: Gera dump do banco, compacta pasta arquivos e envia para OneDrive
+# =============================================================================
+30 2 * * * /bin/bash /opt/AppCadPositivo/backup/run_backup.sh >> /opt/AppCadPositivo/backup/logs/cron.log 2>&1 && date >> /opt/AppCadPositivo/backup/logs/cron.log
 EOF
-
-chmod +x /opt/backup_appcadpositivo.sh
-
-# Adicionar ao cron (diário às 2h)
-echo "0 2 * * * /opt/backup_appcadpositivo.sh" | sudo crontab -
+crontab /tmp/cron_appcadpositivo
+rm -f /tmp/cron_appcadpositivo
 ```
 
 ---

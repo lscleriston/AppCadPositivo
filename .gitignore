@@ -29,6 +29,10 @@ arquivos_backup_*/
 *.pid
 *.tar.gz
 
+# Local backup artifacts
+backup/generated/
+backup/logs/
+
 # ETL local artifacts
 etl_postgresql/.env
 etl_postgresql/logs/

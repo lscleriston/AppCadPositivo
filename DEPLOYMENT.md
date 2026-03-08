@@ -153,10 +153,13 @@ sudo netstat -tulpn | grep :8000
 
 ```bash
 # Backup do banco de dados
-cp /opt/AppCadPositivo/backend/app.db /opt/backups/app-$(date +%Y%m%d).db
+/bin/bash /opt/AppCadPositivo/backup/run_backup.sh
 
-# Backup dos arquivos de usuário
-tar -czf /opt/backups/arquivos-$(date +%Y%m%d).tar.gz /opt/AppCadPositivo/arquivos/
+# Logs do backup
+tail -f /opt/AppCadPositivo/backup/logs/backup.log
+
+# Crontab (execução diária às 02h30)
+crontab -l | grep "BACKUP APPCADPOSITIVO" -A 4
 
 # Verificar integridade do serviço
 sudo systemd-analyze verify /etc/systemd/system/appcadpositivo.service
