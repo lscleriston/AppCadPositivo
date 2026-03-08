@@ -85,7 +85,8 @@ TABLES_DDL = {
             curriculo_atualizado TEXT,
             cursos          TEXT,
             ultima_atualizacao DATE,
-            url_linkedin    VARCHAR(255)
+            url_linkedin    VARCHAR(255),
+            ultima_alteracao_por_matricula VARCHAR(50)
         );
     """,
     "tb_usuario": """
@@ -96,7 +97,9 @@ TABLES_DDL = {
             nome            VARCHAR(255),
             is_admin        BOOLEAN,
             is_super_admin  BOOLEAN,
-            dados_completos BOOLEAN
+            dados_completos BOOLEAN,
+            is_active       BOOLEAN,
+            ultima_alteracao_por_matricula VARCHAR(50)
         );
     """,
     "tb_certificacoes": """
@@ -167,10 +170,11 @@ TABLES_COLUMNS = {
         "validade_certificacoes", "operacao_principal", "operacao_compartilhada",
         "diploma_superior", "conclusao_superior", "pos_graduacao", "conclusao_pos",
         "curriculo_atualizado", "cursos", "ultima_atualizacao", "url_linkedin",
+        "ultima_alteracao_por_matricula",
     ],
     "tb_usuario": [
         "id", "id_dados", "matricula", "nome", "is_admin", "is_super_admin",
-        "dados_completos",
+        "dados_completos", "is_active", "ultima_alteracao_por_matricula",
     ],
     "tb_certificacoes": ["id", "fornecedor", "certificacao"],
     "tb_dados_certificacao": [
@@ -215,6 +219,22 @@ def ensure_tables(pg_conn):
     pg_conn.commit()
 
 
+def ensure_column(pg_conn, table: str, column: str, definition: str):
+    """Garante uma coluna em tabela existente (ALTER TABLE IF NOT EXISTS)."""
+    sql = f"ALTER TABLE {PG_SCHEMA}.{table} ADD COLUMN IF NOT EXISTS {column} {definition};"
+    with pg_conn.cursor() as cur:
+        cur.execute(sql)
+    pg_conn.commit()
+
+
+def ensure_columns(pg_conn):
+    """Garante colunas novas introduzidas em releases posteriores."""
+    ensure_column(pg_conn, "tb_usuario", "is_active", "BOOLEAN")
+    ensure_column(pg_conn, "tb_usuario", "ultima_alteracao_por_matricula", "VARCHAR(50)")
+    ensure_column(pg_conn, "tb_dados", "ultima_alteracao_por_matricula", "VARCHAR(50)")
+    log.info("Colunas incrementais garantidas no PostgreSQL.")
+
+
 def read_maria_table(maria_conn, table: str, columns: list[str]) -> list[dict]:
     """Lê todos os registros de uma tabela no MariaDB."""
     cols = ", ".join(f"`{c}`" for c in columns)
@@ -250,7 +270,7 @@ def sync_table(maria_conn, pg_conn, table: str, columns: list[str], dry: bool = 
             for col in columns:
                 val = row.get(col)
                 # Converter booleanos do MariaDB (0/1) para Python bool
-                if isinstance(val, int) and col in ("is_admin", "is_super_admin", "dados_completos"):
+                if isinstance(val, int) and col in ("is_admin", "is_super_admin", "dados_completos", "is_active"):
                     val = bool(val)
                 values.append(val)
             data.append(tuple(values))
@@ -333,6 +353,7 @@ def main():
         # Preparar destino
         ensure_schema(pg_conn)
         ensure_tables(pg_conn)
+        ensure_columns(pg_conn)
         ensure_control_table(pg_conn)
 
         if not dry:
