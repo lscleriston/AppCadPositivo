@@ -4,6 +4,7 @@ Sistema de cadastro com frontend React/Vite e backend FastAPI.
 
 ## Documentação
 
+- Índice de documentação operacional: `docs/README.md`
 - Guia de produção (VPS, serviços, deploy, troubleshooting): `docs/VPS_SETUP.md`
 - Guia de instalação completa (manual e automatizada): `docs/INSTALL.md`
 - Guia operacional complementar de deploy: `docs/DEPLOYMENT.md`
