@@ -1,0 +1,16 @@
+[Unit]
+Description=AppCadPositivo Frontend (Vite)
+After=network.target
+
+[Service]
+Type=simple
+User=usr_cadpositivo
+Group=usr_cadpositivo
+WorkingDirectory=/opt/AppCadPositivo
+Environment=NODE_ENV=development
+ExecStart=/usr/bin/npm run dev
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

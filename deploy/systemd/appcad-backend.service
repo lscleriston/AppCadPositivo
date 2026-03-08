@@ -1,0 +1,17 @@
+[Unit]
+Description=AppCadPositivo Backend (uvicorn)
+After=network.target
+
+[Service]
+Type=simple
+User=usr_cadpositivo
+Group=usr_cadpositivo
+WorkingDirectory=/opt/AppCadPositivo/backend
+Environment=PYTHONUNBUFFERED=1
+Environment=PATH=/opt/AppCadPositivo/backend/venv/bin:/usr/bin:/bin
+ExecStart=/opt/AppCadPositivo/backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
