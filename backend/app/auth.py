@@ -72,6 +72,8 @@ def authenticate_user(db: Session, matricula: str, password: str):
     user = get_user_by_matricula(db, matricula)
     if not user or not verify_password(password, user.password):
         return False
+    if user.is_active is False:
+        return False
     return user
 
 def get_current_user_token_query(request: Request, db: Session = Depends(get_db)) -> models.Usuario:
@@ -143,4 +145,9 @@ def get_current_user(
     user = get_user_by_matricula(db, matricula=token_data.matricula)
     if user is None:
         raise credentials_exception
+    if user.is_active is False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuário inativo. Procure um administrador.",
+        )
     return user

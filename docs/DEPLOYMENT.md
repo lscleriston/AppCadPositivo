@@ -66,13 +66,16 @@ cd /opt/AppCadPositivo
 # 2. Fazer pull das alterações do GitHub
 git pull origin main
 
-# 3. Recompilar o frontend (se houve mudanças)
+# 3. Aplicar migração de banco (idempotente)
+bash scripts/db/migrate_20260308_admin_features.sh
+
+# 4. Recompilar o frontend (se houve mudanças)
 npm run build
 
-# 4. Reiniciar o serviço para aplicar mudanças
+# 5. Reiniciar o serviço para aplicar mudanças
 sudo systemctl restart appcadpositivo
 
-# 5. Verificar se tudo está funcionando
+# 6. Verificar se tudo está funcionando
 sudo systemctl status appcadpositivo
 curl -I http://localhost:8000/
 ```

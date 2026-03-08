@@ -13,6 +13,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, FileResponse
 from app.database import engine, Base, get_db
 from sqlalchemy.orm import Session
+from sqlalchemy import inspect, text
 from app.routers import users, dados, admin, relatorio_bi
 from app import models, schemas
 from app.auth import create_access_token, verify_password
@@ -30,6 +31,34 @@ import os
 
 # Cria as tabelas no banco, se ainda não existirem
 Base.metadata.create_all(bind=engine)
+
+
+def ensure_usuario_is_active_column() -> None:
+    inspector = inspect(engine)
+    columns = {col["name"] for col in inspector.get_columns("tb_usuario")}
+    if "is_active" in columns:
+        return
+
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE tb_usuario ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT TRUE"))
+
+
+def ensure_audit_columns() -> None:
+    inspector = inspect(engine)
+
+    usuario_columns = {col["name"] for col in inspector.get_columns("tb_usuario")}
+    if "ultima_alteracao_por_matricula" not in usuario_columns:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE tb_usuario ADD COLUMN ultima_alteracao_por_matricula VARCHAR(50) NULL"))
+
+    dados_columns = {col["name"] for col in inspector.get_columns("tb_dados")}
+    if "ultima_alteracao_por_matricula" not in dados_columns:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE tb_dados ADD COLUMN ultima_alteracao_por_matricula VARCHAR(50) NULL"))
+
+
+ensure_usuario_is_active_column()
+ensure_audit_columns()
 
 app = FastAPI(title="Projeto Certificações")
 
@@ -221,6 +250,12 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Matrícula ou senha incorretos",
             headers={"WWW-Authenticate": "Bearer"}
+        )
+
+    if user.is_active is False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuário inativo. Procure um administrador.",
         )
     
     access_token = create_access_token(data={"sub": user.matricula})

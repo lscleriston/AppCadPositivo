@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, B
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from urllib.parse import quote
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from starlette.responses import Response
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from urllib.parse import unquote
@@ -46,6 +46,30 @@ BACKEND_URL = "http://10.34.5.157:8000"
 CERTIFICACAO_ENDPOINT = f"{BACKEND_URL}/admin/ver-certificacao"
 CURRICULO_ENDPOINT = f"{BACKEND_URL}/admin/ver-curriculo"
 
+
+def _ensure_admin_or_super_admin(current_user: models.Usuario) -> None:
+    if not (current_user.is_admin or current_user.is_super_admin):
+        raise HTTPException(status_code=403, detail="Acesso negado")
+
+
+def _get_target_user_and_dados_by_matricula(
+    matricula: str,
+    db: Session,
+) -> Tuple[models.Usuario, Optional[models.DadosUser]]:
+    usuario = db.query(models.Usuario).filter(models.Usuario.matricula == matricula).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    dados = None
+    if usuario.id_dados:
+        dados = db.query(models.DadosUser).filter(models.DadosUser.id == usuario.id_dados).first()
+    return usuario, dados
+
+
+def _get_nome_pasta_usuario(dados: models.DadosUser, usuario: models.Usuario) -> str:
+    nome_base = (dados.nome_completo if dados and dados.nome_completo else usuario.nome) or usuario.matricula
+    return nome_base.replace(" ", "_")
+
 @router.get("/dados/me", response_model=schemas.DadosOut)
 def get_dados_usuario(db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_user)):
     dados = db.query(models.DadosUser).filter(models.DadosUser.matricula == current_user.matricula).first()
@@ -63,6 +87,8 @@ def criar_dados(dados: schemas.DadosCreate, db: Session = Depends(get_db), curre
     # Atualiza os dados fixos do usuário
     current_user.id_dados = novo_dado.id
     current_user.nome =novo_dado.nome_completo 
+    novo_dado.ultima_alteracao_por_matricula = current_user.matricula
+    current_user.ultima_alteracao_por_matricula = current_user.matricula
 
     db.commit()
 
@@ -103,6 +129,7 @@ def atualizar_dados(
         setattr(dados, key, value)
 
     dados.ultima_atualizacao = datetime.utcnow().date()
+    dados.ultima_alteracao_por_matricula = current_user.matricula
     db.commit()
     db.refresh(dados)
 
@@ -126,6 +153,7 @@ def atualizar_dados(
 
     # Set dados_completos to True after successful data update
     current_user.dados_completos = True
+    current_user.ultima_alteracao_por_matricula = current_user.matricula
     db.commit()
     db.refresh(current_user) # Refresh current_user to reflect the change
 
@@ -217,6 +245,8 @@ def upload_files(
         raise HTTPException(status_code=400, detail="Tipo inválido.")
 
     dados.data_atualizacao = datetime.utcnow()
+    dados.ultima_alteracao_por_matricula = current_user.matricula
+    current_user.ultima_alteracao_por_matricula = current_user.matricula
     db.commit()
 
     return {"message": "Arquivo salvo com sucesso", "caminho": str(file_path)}
@@ -558,3 +588,279 @@ def listar_arquivo_graduacao(diploma: Optional[str] = None, current_user: models
         if diploma_path.is_dir():
             result[diploma_path.name] = [f.name for f in diploma_path.iterdir() if f.is_file()]
     return {"arquivos": result}
+
+
+@router.get("/admin/usuarios/{matricula}/dados", response_model=schemas.DadosOut)
+def admin_get_dados_usuario(
+    matricula: str,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_user),
+):
+    _ensure_admin_or_super_admin(current_user)
+    _, dados = _get_target_user_and_dados_by_matricula(matricula, db)
+    if not dados:
+        raise HTTPException(status_code=404, detail="Dados não encontrados")
+    return dados
+
+
+@router.post("/admin/usuarios/{matricula}/dados", response_model=schemas.DadosOut)
+def admin_criar_dados_usuario(
+    matricula: str,
+    dados: schemas.DadosCreate,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_user),
+):
+    _ensure_admin_or_super_admin(current_user)
+    usuario, dados_existentes = _get_target_user_and_dados_by_matricula(matricula, db)
+    if dados_existentes:
+        raise HTTPException(status_code=400, detail="Dados já cadastrados.")
+
+    novo_dado = criar_dado(db=db, dados=dados, matricula=usuario.matricula)
+    usuario.id_dados = novo_dado.id
+    usuario.nome = novo_dado.nome_completo
+    usuario.dados_completos = True
+    usuario.ultima_alteracao_por_matricula = current_user.matricula
+    novo_dado.ultima_alteracao_por_matricula = current_user.matricula
+    db.commit()
+    db.refresh(novo_dado)
+    return novo_dado
+
+
+@router.put("/admin/usuarios/{matricula}/dados", response_model=schemas.DadosOut)
+def admin_atualizar_dados_usuario(
+    matricula: str,
+    user_update: schemas.DadosUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_user),
+):
+    _ensure_admin_or_super_admin(current_user)
+    usuario, dados = _get_target_user_and_dados_by_matricula(matricula, db)
+    if not dados:
+        raise HTTPException(status_code=404, detail="Dados não encontrados")
+
+    certificacoes_anteriores = json.loads(dados.certificacoes or "[]")
+    novas_certificacoes = user_update.certificacoes or []
+    remover_certificacoes_excluidas(dados.nome_completo, certificacoes_anteriores, novas_certificacoes, db)
+
+    for key, value in user_update.dict(exclude_unset=True).items():
+        if isinstance(value, list):
+            if key in ("validade_certificacoes", "emissao_certificacoes"):
+                value = json.dumps([d.isoformat() if d else None for d in value])
+            else:
+                value = json.dumps(value)
+        setattr(dados, key, value)
+
+    dados.ultima_atualizacao = datetime.utcnow().date()
+    dados.ultima_alteracao_por_matricula = current_user.matricula
+    usuario.nome = dados.nome_completo
+    usuario.dados_completos = True
+    usuario.ultima_alteracao_por_matricula = current_user.matricula
+    db.commit()
+    db.refresh(dados)
+
+    atualizar_dados_certificacao(
+        db=db,
+        user_id=usuario.id,
+        novas_certificacoes=user_update.certificacoes or [],
+        emissoes=user_update.emissao_certificacoes or [],
+        validades=user_update.validade_certificacoes or [],
+    )
+
+    atualizar_tb_auxiliares(
+        db=db,
+        user_id=usuario.id,
+        operacoes=user_update.operacao_compartilhada or [],
+        conhecimentos=user_update.conhecimento or [],
+        cursos=user_update.cursos or [],
+    )
+
+    return dados
+
+
+@router.post("/admin/usuarios/{matricula}/upload")
+def admin_upload_files(
+    matricula: str,
+    tipo: str = Form(...),
+    fornecedor: Optional[str] = Form(None),
+    certificacao: Optional[str] = Form(None),
+    file: UploadFile = File(...),
+    emissao: Optional[str] = Form(None),
+    validade: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_user),
+):
+    _ensure_admin_or_super_admin(current_user)
+
+    if file.size and file.size > MAX_UPLOAD_SIZE:
+        max_mb = MAX_UPLOAD_SIZE // (1024 * 1024)
+        raise HTTPException(status_code=413, detail=f"Arquivo muito grande. Tamanho máximo permitido: {max_mb} MB")
+
+    usuario, dados = _get_target_user_and_dados_by_matricula(matricula, db)
+    if not dados:
+        raise HTTPException(status_code=404, detail="Dados do usuário não encontrados")
+
+    nome_pasta = _get_nome_pasta_usuario(dados, usuario)
+
+    if tipo.lower() == "certificacoes":
+        if not fornecedor or not certificacao:
+            raise HTTPException(status_code=400, detail="Fornecedor e certificação são obrigatórios para certificações")
+
+        file_path, link_visualizacao = salvar_arquivo_certificacao(dados.nome_completo, fornecedor, certificacao, file)
+        dados.certificacoes_link = f"/arquivos/{nome_pasta}/certificacoes"
+
+        certificacao_detalhe = (
+            db.query(models.DadosCertificacoes)
+            .filter_by(id_user=usuario.id, id_certificacao=obter_id_certificacao(db, certificacao))
+            .first()
+        )
+
+        if certificacao_detalhe:
+            certificacao_detalhe.link_certificacao = link_visualizacao
+            certificacao_detalhe.certificacao_emissao = emissao
+            certificacao_detalhe.certificacao_validade = validade
+        else:
+            db.add(
+                models.DadosCertificacoes(
+                    id_user=usuario.id,
+                    id_certificacao=obter_id_certificacao(db, certificacao),
+                    link_certificacao=link_visualizacao,
+                    certificacao_emissao=emissao,
+                    certificacao_validade=validade,
+                )
+            )
+
+    elif tipo.lower() == "curriculo":
+        remover_curriculo_antigo(dados.nome_completo)
+        date_atual = date.today().strftime("%d_%m_%Y")
+        sub_dir = ARQUIVOS_DIR / nome_pasta / "curriculo"
+        sub_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"{date_atual}_{file.filename.replace(' ', '_')}"
+        file_path = sub_dir / filename
+        with open(file_path, "wb") as buffer:
+            buffer.write(file.file.read())
+        dados.curriculo_atualizado = f"{CURRICULO_ENDPOINT}/{nome_pasta}/{filename}"
+
+    elif tipo.lower() == "graduacao":
+        diploma_val = fornecedor or "graduacao"
+        file_path, _ = salvar_arquivo_graduacao(dados.nome_completo, diploma_val, file)
+
+    else:
+        raise HTTPException(status_code=400, detail="Tipo inválido.")
+
+    dados.ultima_alteracao_por_matricula = current_user.matricula
+    usuario.ultima_alteracao_por_matricula = current_user.matricula
+    db.commit()
+    return {"message": "Arquivo salvo com sucesso", "caminho": str(file_path)}
+
+
+@router.get("/admin/usuarios/{matricula}/arquivos/curriculo")
+def admin_listar_arquivo_curriculo(
+    matricula: str,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_user),
+):
+    _ensure_admin_or_super_admin(current_user)
+    usuario, dados = _get_target_user_and_dados_by_matricula(matricula, db)
+    if not dados:
+        return {"arquivos": []}
+    nome = _get_nome_pasta_usuario(dados, usuario)
+    base_path = ARQUIVOS_DIR / nome / "curriculo"
+    if not base_path.exists():
+        return {"arquivos": []}
+    return {"arquivos": [f.name for f in base_path.iterdir() if f.is_file()]}
+
+
+@router.get("/admin/usuarios/{matricula}/arquivos/certificacao")
+def admin_listar_arquivo_certificacao(
+    matricula: str,
+    fornecedor: str,
+    certificacao: str,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_user),
+):
+    _ensure_admin_or_super_admin(current_user)
+    usuario, dados = _get_target_user_and_dados_by_matricula(matricula, db)
+    if not dados:
+        return {"arquivos": []}
+    nome = _get_nome_pasta_usuario(dados, usuario)
+    base_path = ARQUIVOS_DIR / nome / "certificacoes" / limpar_nome(fornecedor) / limpar_nome(certificacao)
+    if not base_path.exists():
+        return {"arquivos": []}
+    return {"arquivos": [f.name for f in base_path.iterdir() if f.is_file()]}
+
+
+@router.get("/admin/usuarios/{matricula}/arquivos/graduacao")
+def admin_listar_arquivo_graduacao(
+    matricula: str,
+    diploma: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_user),
+):
+    _ensure_admin_or_super_admin(current_user)
+    usuario, dados = _get_target_user_and_dados_by_matricula(matricula, db)
+    if not dados:
+        return {"arquivos": []}
+    nome = _get_nome_pasta_usuario(dados, usuario)
+    base_path = ARQUIVOS_DIR / nome / "graduacao"
+    if not base_path.exists():
+        return {"arquivos": []}
+
+    if diploma:
+        target = base_path / limpar_nome(diploma)
+        if not target.exists():
+            return {"arquivos": []}
+        return {"arquivos": [f.name for f in target.iterdir() if f.is_file()]}
+
+    result = {}
+    for diploma_path in base_path.iterdir():
+        if diploma_path.is_dir():
+            result[diploma_path.name] = [f.name for f in diploma_path.iterdir() if f.is_file()]
+    return {"arquivos": result}
+
+
+@router.delete("/admin/usuarios/{matricula}/arquivos")
+def admin_remover_arquivo(
+    matricula: str,
+    tipo: str,
+    arquivo: str,
+    fornecedor: Optional[str] = None,
+    certificacao: Optional[str] = None,
+    diploma: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(get_current_user),
+):
+    _ensure_admin_or_super_admin(current_user)
+    usuario, dados = _get_target_user_and_dados_by_matricula(matricula, db)
+    if not dados:
+        raise HTTPException(status_code=404, detail="Dados não encontrados")
+
+    nome = _get_nome_pasta_usuario(dados, usuario)
+    base_usuario = ARQUIVOS_DIR / nome
+
+    if tipo == "curriculo":
+        alvo = base_usuario / "curriculo" / arquivo
+        if alvo.exists() and alvo.is_file():
+            alvo.unlink()
+        dados.curriculo_atualizado = None
+
+    elif tipo == "certificacoes":
+        if not fornecedor or not certificacao:
+            raise HTTPException(status_code=400, detail="Fornecedor e certificação são obrigatórios")
+        alvo = base_usuario / "certificacoes" / limpar_nome(fornecedor) / limpar_nome(certificacao) / arquivo
+        if alvo.exists() and alvo.is_file():
+            alvo.unlink()
+
+    elif tipo == "graduacao":
+        if not diploma:
+            raise HTTPException(status_code=400, detail="Diploma é obrigatório para tipo graduacao")
+        alvo = base_usuario / "graduacao" / limpar_nome(diploma) / arquivo
+        if alvo.exists() and alvo.is_file():
+            alvo.unlink()
+
+    else:
+        raise HTTPException(status_code=400, detail="Tipo inválido")
+
+    dados.ultima_alteracao_por_matricula = current_user.matricula
+    usuario.ultima_alteracao_por_matricula = current_user.matricula
+    db.commit()
+    return {"message": "Arquivo removido com sucesso"}

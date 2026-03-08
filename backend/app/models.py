@@ -26,6 +26,7 @@ class DadosUser(Base):
     cursos = Column(Text)
     url_linkedin = Column(String(255), nullable=True)
     ultima_atualizacao = Column(Date, default=func.current_date(), onupdate=func.current_date())
+    ultima_alteracao_por_matricula = Column(String(50), nullable=True)
 
     usuario = relationship("Usuario", back_populates="dados", uselist=False)
 
@@ -39,7 +40,9 @@ class Usuario(Base):
     password = Column(String(255))
     is_admin = Column(Boolean, default=False)
     is_super_admin = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
     dados_completos = Column(Boolean, default=False)
+    ultima_alteracao_por_matricula = Column(String(50), nullable=True)
 
     dados = relationship("DadosUser", back_populates="usuario")
 

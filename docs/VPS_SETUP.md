@@ -208,20 +208,23 @@ cd /opt/AppCadPositivo
 # 2. Fazer pull das alterações do GitHub
 git pull origin main
 
-# 3. Se há mudanças no frontend (src/)
+# 3. Aplicar migração de banco (idempotente)
+bash scripts/db/migrate_20260308_admin_features.sh
+
+# 4. Se há mudanças no frontend (src/)
 npm run build
 
-# 4. Se há mudanças no backend (requirements.txt)
+# 5. Se há mudanças no backend (requirements.txt)
 cd backend
 . .venv/bin/activate
 pip install -r requirements.txt
 cd ..
 
-# 5. Reiniciar os serviços
+# 6. Reiniciar os serviços
 systemctl restart appcadpositivo
 systemctl reload nginx
 
-# 6. Verificar status
+# 7. Verificar status
 systemctl status appcadpositivo
 curl -I http://localhost/
 ```

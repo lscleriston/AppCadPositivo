@@ -15,6 +15,7 @@ import { RedefinirSenhaUsuario } from "./pages/RedefinirSenhaUsuario";
 import { MinhaSenha } from "./pages/MinhaSenha";
 import { RelatorioBI } from "./pages/RelatorioBI";
 import { EditarOperacoes } from "./pages/EditarOperacoes";
+import { GerenciarUsuarios } from "./pages/GerenciarUsuarios";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,7 @@ const App = () => (
           <Route path="/editar-operacoes" element={<EditarOperacoes />} />
           <Route path="/criar-usuario" element={<CriarUsuario />} />
           <Route path="/redefinir-senha" element={<RedefinirSenhaUsuario />} />
+          <Route path="/gerenciar-usuarios" element={<GerenciarUsuarios />} />
           <Route path="/minha-senha" element={<MinhaSenha />} />
           <Route path="/relatorio-bi" element={<RelatorioBI />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

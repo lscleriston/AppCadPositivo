@@ -1,4 +1,4 @@
-import { User, LogOut, Settings, Home, Edit, Building2, FileText, Award, KeyRound, SlidersHorizontal } from "lucide-react";
+import { User, LogOut, Settings, Home, Edit, Building2, FileText, Award, KeyRound, SlidersHorizontal, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -79,6 +79,7 @@ export const Header = () => {
                 {isAdmin && (
                   <>
                     <DropdownMenuItem onClick={() => navigate('/criar-usuario')}><User className="mr-2 h-4 w-4" />Criar Usuário</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/gerenciar-usuarios')}><Users className="mr-2 h-4 w-4" />Gerenciar Usuários</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/redefinir-senha')}><KeyRound className="mr-2 h-4 w-4" />Redefinir Senha</DropdownMenuItem>
                   </>
                 )}

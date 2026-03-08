@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Header } from "@/components/Layout/Header";
 import { Save, X, Plus, Trash2, User, Briefcase, Award, BookOpen, Loader2, Upload, Paperclip } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { useToast } from "@/components/ui/use-toast";
@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 
 // Constante: Tamanho máximo de upload: 100 MB
 const MAX_UPLOAD_SIZE = 100 * 1024 * 1024; // 100 MB em bytes
@@ -103,7 +104,7 @@ const friendlyNameFromPath = (path: string) => {
 };
 
 // Helper component for a single certification item
-const CertificacaoFormItem = ({ index, control, certificacoesOptions, removeCertificacao, getValues, setValue }: any) => {
+const CertificacaoFormItem = ({ index, control, certificacoesOptions, removeCertificacao, getValues, setValue, onRemoveFile, canRemoveFile }: any) => {
   const certificacaoFileRefs = useRef<Array<HTMLInputElement | null>>([]);
   const fornecedor = useWatch({ control, name: `certificacoes.${index}.fornecedor` });
   const selectedFile = useWatch({ control, name: `certificacoes.${index}.file` });
@@ -225,7 +226,19 @@ const CertificacaoFormItem = ({ index, control, certificacoesOptions, removeCert
               )}
             />
           </div>
-          <div className="text-sm text-muted-foreground truncate">{fileName || 'Nenhum arquivo selecionado'}</div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-sm text-muted-foreground truncate">{fileName || 'Nenhum arquivo selecionado'}</div>
+            {canRemoveFile && fileName ? (
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={() => onRemoveFile(index)}
+              >
+                Remover arquivo
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>
@@ -234,9 +247,38 @@ const CertificacaoFormItem = ({ index, control, certificacoesOptions, removeCert
 
 export const EditUserData = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const curriculoFileRef = useRef<HTMLInputElement>(null);
   const diplomaFileRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const targetMatricula = (searchParams.get("matricula") || "").trim();
+  const { isAdmin, loading: loadingAdminCheck } = useIsAdmin();
+  const isTargetMode = Boolean(targetMatricula);
+  const isAdminTargetMode = Boolean(targetMatricula && isAdmin);
+
+  const endpointDados = isTargetMode
+    ? `${import.meta.env.VITE_API_URL}/admin/usuarios/${encodeURIComponent(targetMatricula)}/dados`
+    : `${import.meta.env.VITE_API_URL}/dados/me`;
+
+  const endpointUpload = isTargetMode
+    ? `${import.meta.env.VITE_API_URL}/admin/usuarios/${encodeURIComponent(targetMatricula)}/upload`
+    : `${import.meta.env.VITE_API_URL}/upload`;
+
+  const endpointCurriculoNome = isTargetMode
+    ? `${import.meta.env.VITE_API_URL}/admin/usuarios/${encodeURIComponent(targetMatricula)}/arquivos/curriculo`
+    : `${import.meta.env.VITE_API_URL}/dados/nome-arquivo-curriculo`;
+
+  const endpointCertNome = isTargetMode
+    ? `${import.meta.env.VITE_API_URL}/admin/usuarios/${encodeURIComponent(targetMatricula)}/arquivos/certificacao`
+    : `${import.meta.env.VITE_API_URL}/dados/nome-arquivo-certificacao`;
+
+  const endpointGradNome = isTargetMode
+    ? `${import.meta.env.VITE_API_URL}/admin/usuarios/${encodeURIComponent(targetMatricula)}/arquivos/graduacao`
+    : `${import.meta.env.VITE_API_URL}/dados/nome-arquivo-graduacao`;
+
+  const endpointRemoveArquivo = isTargetMode
+    ? `${import.meta.env.VITE_API_URL}/admin/usuarios/${encodeURIComponent(targetMatricula)}/arquivos`
+    : "";
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -260,10 +302,17 @@ export const EditUserData = () => {
   const { fields: cursosFields, append: appendCurso, remove: removeCurso } = useFieldArray({ control, name: "cursos" });
 
   useEffect(() => {
+    if (loadingAdminCheck) {
+      return;
+    }
+
     const fetchData = async () => {
       setLoading(true);
+      setError(null);
+      setIsNewUser(false);
       const token = localStorage.getItem('auth_token');
       const headers = { 'Authorization': `Bearer ${token}` };
+
       
       try {
         // Primeiro, carregar sempre as listas de opções (independente dos dados do usuário)
@@ -281,9 +330,10 @@ export const EditUserData = () => {
         // Agora tentar carregar os dados do usuário (pode falhar para usuário novo)
         try {
           const [userDataResponse, curriculoResponse] = await Promise.all([
-            axios.get(`${import.meta.env.VITE_API_URL}/dados/me`, { headers }),
-            axios.get(`${import.meta.env.VITE_API_URL}/dados/nome-arquivo-curriculo`, { headers })
+            axios.get(endpointDados, { headers }),
+            axios.get(endpointCurriculoNome, { headers })
           ]);
+
 
           const userData = userDataResponse.data;
           if (curriculoResponse.data.arquivos?.length) setExistingCurriculo(curriculoResponse.data.arquivos[0]);
@@ -294,7 +344,7 @@ export const EditUserData = () => {
               let fileName = '';
               if (certOption) {
                 try {
-                  const fileResponse = await axios.get(`${import.meta.env.VITE_API_URL}/dados/nome-arquivo-certificacao`, { 
+                  const fileResponse = await axios.get(endpointCertNome, {
                     headers, 
                     params: { fornecedor: certOption.fornecedor, certificacao: certName }
                   });
@@ -315,7 +365,7 @@ export const EditUserData = () => {
           const graduacoesComArquivos: Record<string, string[]> = {};
           for (const d of (userData.diploma_superior || [])) {
             try {
-              const r = await axios.get(`${import.meta.env.VITE_API_URL}/dados/nome-arquivo-graduacao`, { headers, params: { diploma: d } });
+              const r = await axios.get(endpointGradNome, { headers, params: { diploma: d } });
               graduacoesComArquivos[d] = r.data.arquivos || [];
             } catch (e) {
               graduacoesComArquivos[d] = [];
@@ -370,7 +420,92 @@ export const EditUserData = () => {
       }
     };
     fetchData();
-  }, [reset]);
+  }, [
+    reset,
+    loadingAdminCheck,
+    targetMatricula,
+    isAdmin,
+    endpointDados,
+    endpointCurriculoNome,
+    endpointCertNome,
+    endpointGradNome,
+  ]);
+
+  const removerArquivo = async (params: {
+    tipo: "curriculo" | "certificacoes" | "graduacao";
+    arquivo: string;
+    fornecedor?: string;
+    certificacao?: string;
+    diploma?: string;
+  }) => {
+    if (!isTargetMode || !endpointRemoveArquivo) {
+      toast({
+        variant: "destructive",
+        title: "Ação não permitida",
+        description: "A remoção de arquivos nesta tela está disponível no modo administrativo.",
+      });
+      return false;
+    }
+
+    try {
+      const token = localStorage.getItem("auth_token");
+      await axios.delete(endpointRemoveArquivo, {
+        headers: { Authorization: `Bearer ${token}` },
+        params,
+      });
+      return true;
+    } catch (err) {
+      console.error("Erro ao remover arquivo:", err);
+      toast({
+        variant: "destructive",
+        title: "Erro ao remover arquivo",
+        description: "Não foi possível remover o arquivo selecionado.",
+      });
+      return false;
+    }
+  };
+
+  const handleRemoverCurriculo = async () => {
+    if (!existingCurriculo) return;
+    const ok = await removerArquivo({ tipo: "curriculo", arquivo: existingCurriculo });
+    if (ok) {
+      setExistingCurriculo("");
+      setCurriculoFile(null);
+      toast({ title: "Currículo removido", description: "O arquivo foi removido com sucesso." });
+    }
+  };
+
+  const handleRemoverArquivoCertificacao = async (index: number) => {
+    const cert = getValues(`certificacoes.${index}` as const);
+    if (!cert?.fileName || !cert?.fornecedor || !cert?.certificacao) return;
+    const ok = await removerArquivo({
+      tipo: "certificacoes",
+      arquivo: cert.fileName,
+      fornecedor: cert.fornecedor,
+      certificacao: cert.certificacao,
+    });
+    if (ok) {
+      setValue(`certificacoes.${index}.fileName`, "");
+      setValue(`certificacoes.${index}.file`, null);
+      toast({ title: "Arquivo removido", description: "Arquivo da certificação removido com sucesso." });
+    }
+  };
+
+  const handleRemoverArquivoGraduacao = async (index: number) => {
+    const grad = getValues(`diploma_superior.${index}` as const) as { value?: string; fileName?: string };
+    if (!grad?.fileName || !grad?.value) return;
+    const ok = await removerArquivo({
+      tipo: "graduacao",
+      arquivo: grad.fileName,
+      diploma: grad.value,
+    });
+    if (ok) {
+      setValue(`diploma_superior.${index}.fileName`, "");
+      setValue(`diploma_superior.${index}.file`, null);
+      setExistingGraduacao((prev) => ({ ...prev, [grad.value as string]: [] }));
+      toast({ title: "Arquivo removido", description: "Arquivo da graduação removido com sucesso." });
+    }
+  };
 
 
 
@@ -448,9 +583,9 @@ export const EditUserData = () => {
       };
       // Cria ou atualiza os dados principais do usuário
       if (isNewUser) {
-        await axios.post(`${import.meta.env.VITE_API_URL}/dados`, transformedData, { headers: { 'Authorization': `Bearer ${token}` } });
+        await axios.post(isTargetMode ? endpointDados : `${import.meta.env.VITE_API_URL}/dados`, transformedData, { headers: { 'Authorization': `Bearer ${token}` } });
       } else {
-        await axios.put(`${import.meta.env.VITE_API_URL}/dados`, transformedData, { headers: { 'Authorization': `Bearer ${token}` } });
+        await axios.put(isTargetMode ? endpointDados : `${import.meta.env.VITE_API_URL}/dados`, transformedData, { headers: { 'Authorization': `Bearer ${token}` } });
       }
       // Agora realiza upload de arquivos
       // Faz upload de todas as certificações selecionadas
@@ -464,7 +599,7 @@ export const EditUserData = () => {
           formData.append('certificacao', cert.certificacao);
           formData.append('emissao', cert.emissao);
           formData.append('validade', cert.validade);
-          await axios.post(`${import.meta.env.VITE_API_URL}/upload`, formData, {
+          await axios.post(endpointUpload, formData, {
             headers: { 'Content-Type': 'multipart/form-data', 'Authorization': `Bearer ${token}` }
           });
         }
@@ -474,7 +609,7 @@ export const EditUserData = () => {
         const formData = new FormData();
         formData.append('file', curriculoFile);
         formData.append('tipo', 'curriculo');
-        await axios.post(`${import.meta.env.VITE_API_URL}/upload`, formData, {
+        await axios.post(endpointUpload, formData, {
           headers: { 'Content-Type': 'multipart/form-data', 'Authorization': `Bearer ${token}` }
         });
         setExistingCurriculo(curriculoFile.name);
@@ -488,14 +623,14 @@ export const EditUserData = () => {
           formData.append('tipo', 'graduacao');
           // enviamos o nome do diploma no campo 'fornecedor' para o backend usar como pasta
           formData.append('fornecedor', grad.value);
-          await axios.post(`${import.meta.env.VITE_API_URL}/upload`, formData, {
+          await axios.post(endpointUpload, formData, {
             headers: { 'Content-Type': 'multipart/form-data', 'Authorization': `Bearer ${token}` }
           });
         }
       }
       toast({ title: "Sucesso!", description: "Dados atualizados com sucesso." });
       setSubmitting(false);
-      navigate("/dados");
+      navigate(isTargetMode ? "/gerenciar-usuarios" : "/dados");
     } catch (err) {
       setSubmitting(false);
       if (axios.isAxiosError(err) && err.response?.status === 422) {
@@ -528,7 +663,7 @@ export const EditUserData = () => {
 
   const { currentUser } = useCurrentUser();
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-12 w-12 animate-spin" /></div>;
+  if (loading || loadingAdminCheck) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-12 w-12 animate-spin" /></div>;
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
@@ -541,7 +676,7 @@ export const EditUserData = () => {
         )}
         <Form {...form}>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-            <div className="text-center space-y-2"><h1 className="text-3xl font-bold">Editar Meus Dados</h1><p className="text-muted-foreground">Atualize suas informações.</p></div>
+            <div className="text-center space-y-2"><h1 className="text-3xl font-bold">{isTargetMode ? `Editar Dados de ${targetMatricula}` : 'Editar Meus Dados'}</h1><p className="text-muted-foreground">{isTargetMode ? 'Atualize dados, permissões de upload e remova arquivos do usuário selecionado.' : 'Atualize suas informações.'}</p></div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-6">
                 <Card className="shadow-elegant">
@@ -557,7 +692,7 @@ export const EditUserData = () => {
                     <Separator />
                     <DynamicFieldSection control={control} title="Conhecimentos" fields={conhecimentoFields} name="conhecimento" remove={removeConhecimento} append={() => appendConhecimento({ value: '' })} />
                     <Separator />
-                    <FormacaoAcademicaSection control={control} diplomaFields={diplomaFields} removeDiploma={removeDiploma} appendDiploma={() => appendDiploma({ value: '' })} posGradFields={posGradFields} removePosGrad={removePosGrad} appendPosGrad={() => appendPosGrad({ value: '' })} setValue={setValue} diplomaFileRefs={diplomaFileRefs} />
+                    <FormacaoAcademicaSection control={control} diplomaFields={diplomaFields} removeDiploma={removeDiploma} appendDiploma={() => appendDiploma({ value: '' })} posGradFields={posGradFields} removePosGrad={removePosGrad} appendPosGrad={() => appendPosGrad({ value: '' })} setValue={setValue} diplomaFileRefs={diplomaFileRefs} onRemoveGraduacaoFile={handleRemoverArquivoGraduacao} canRemoveFile={isAdminTargetMode} />
                     <Separator />
                     <DynamicFieldSection control={control} title="Cursos" fields={cursosFields} name="cursos" remove={removeCurso} append={() => appendCurso({ value: '' })} />
                   </CardContent>
@@ -575,13 +710,22 @@ export const EditUserData = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-4 space-y-4">
-                    {certificacoesFields.map((field, index) => <CertificacaoFormItem key={field.id} index={index} control={control} certificacoesOptions={certificacoesOptions} removeCertificacao={removeCertificacao} getValues={getValues} setValue={setValue} />)}
+                    {certificacoesFields.map((field, index) => <CertificacaoFormItem key={field.id} index={index} control={control} certificacoesOptions={certificacoesOptions} removeCertificacao={removeCertificacao} getValues={getValues} setValue={setValue} onRemoveFile={handleRemoverArquivoCertificacao} canRemoveFile={isAdminTargetMode} />)}
                   </CardContent>
                 </Card>
                 <Card className="shadow-elegant">
                   <CardHeader><CardTitle>Currículo</CardTitle></CardHeader>
                   <CardContent className="p-6 space-y-4">
-                    {existingCurriculo && <div className="text-sm text-muted-foreground">Arquivo atual: <span className="font-medium text-foreground">{existingCurriculo}</span></div>}
+                    {existingCurriculo && (
+                      <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+                        <div>Arquivo atual: <span className="font-medium text-foreground">{existingCurriculo}</span></div>
+                        {isAdminTargetMode ? (
+                          <Button type="button" size="sm" variant="destructive" onClick={handleRemoverCurriculo}>
+                            Remover arquivo
+                          </Button>
+                        ) : null}
+                      </div>
+                    )}
                     <div>
                       <Label>Novo Arquivo (Máx: {MAX_UPLOAD_SIZE_MB} MB)</Label>
                       <div className="space-y-2 mt-1">
@@ -611,7 +755,7 @@ export const EditUserData = () => {
                 </Card>
               </div>
             </div>
-            <div className="flex justify-center gap-4"><Button type="button" onClick={() => navigate("/dados")} size="lg" variant="outline">Cancelar</Button><Button type="submit" disabled={submitting} size="lg">{submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}Salvar Alterações</Button></div>
+            <div className="flex justify-center gap-4"><Button type="button" onClick={() => navigate(isTargetMode ? "/gerenciar-usuarios" : "/dados")} size="lg" variant="outline">Cancelar</Button><Button type="submit" disabled={submitting} size="lg">{submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}Salvar Alterações</Button></div>
           </form>
         </Form>
       </main>
@@ -629,7 +773,7 @@ const DynamicFieldSection = ({ control, title, fields, name, remove, append }: a
   </div>
 );
 
-const FormacaoAcademicaSection = ({ control, diplomaFields, removeDiploma, appendDiploma, posGradFields, removePosGrad, appendPosGrad, setValue, diplomaFileRefs }: any) => (
+const FormacaoAcademicaSection = ({ control, diplomaFields, removeDiploma, appendDiploma, posGradFields, removePosGrad, appendPosGrad, setValue, diplomaFileRefs, onRemoveGraduacaoFile, canRemoveFile }: any) => (
   <div>
     <h3 className="font-semibold text-lg mb-4">Formação Acadêmica</h3>
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -675,7 +819,19 @@ const FormacaoAcademicaSection = ({ control, diplomaFields, removeDiploma, appen
                       className="hidden"
                     />
                   </div>
-                  <div className="text-sm text-muted-foreground">{fNameField.value || 'Nenhum arquivo selecionado'}</div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm text-muted-foreground">{fNameField.value || 'Nenhum arquivo selecionado'}</div>
+                    {canRemoveFile && fNameField.value ? (
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => onRemoveGraduacaoFile(index)}
+                      >
+                        Remover arquivo
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
               </FormItem>
             )} />

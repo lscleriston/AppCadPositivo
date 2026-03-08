@@ -48,8 +48,11 @@ def refresh_access_token(cfg: dict) -> str:
         raise RuntimeError(f"Arquivo de token nao encontrado: {token_file}")
 
     token_data = json.loads(token_file.read_text(encoding="utf-8"))
+    cached_access_token = token_data.get("access_token", "")
     refresh_token = token_data.get("refresh_token", "")
     if not refresh_token:
+        if cached_access_token:
+            return cached_access_token
         raise RuntimeError("refresh_token ausente no arquivo de token")
 
     url = f"https://login.microsoftonline.com/{cfg['tenant_id']}/oauth2/v2.0/token"
@@ -65,6 +68,9 @@ def refresh_access_token(cfg: dict) -> str:
         timeout=60,
     )
     if resp.status_code != 200:
+        if cached_access_token:
+            # Fallback para ambientes onde o client secret mudou, mas o access_token atual ainda funciona.
+            return cached_access_token
         raise RuntimeError(f"Falha ao atualizar token: {resp.status_code} - {resp.text}")
 
     new_tokens = resp.json()

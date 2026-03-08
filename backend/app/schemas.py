@@ -23,6 +23,7 @@ class DadosBase(BaseModel):
     cursos: Optional[List[str]] = []
     url_linkedin: Optional[str] = None
     ultima_atualizacao: Optional[date] = None
+    ultima_alteracao_por_matricula: Optional[str] = None
 
     @validator("conclusao_superior", "conclusao_pos", pre=True)
     def parse_optional_date(cls, v):
@@ -168,12 +169,35 @@ class UsuarioBase(BaseModel):
     id_dados: Optional[int]
     is_admin: Optional[bool] = False
     is_super_admin: Optional[bool] = False
+    is_active: Optional[bool] = True
+    ultima_alteracao_por_matricula: Optional[str] = None
 
 class UsuarioCreate(UsuarioBase):
     password: str
 
 class AtualizarSenha(BaseModel):
     nova_senha: str
+
+
+class UsuarioAdminSearchItem(BaseModel):
+    id: int
+    matricula: str
+    nome: Optional[str]
+    is_admin: bool
+    is_super_admin: bool
+    is_active: bool
+    dados_completos: bool
+    ultima_alteracao_por_matricula: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class UsuarioAdminUpdate(BaseModel):
+    nome: Optional[str] = None
+    is_admin: Optional[bool] = None
+    is_super_admin: Optional[bool] = None
+    is_active: Optional[bool] = None
 
 class UsuarioOut(UsuarioBase):
     id: int
